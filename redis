@@ -1,7 +1,52 @@
 常用排查redis问题技巧：
 
-问题一：
+问题一：redis内存报警
+排查步骤：
+1.top 命令检查当前服务器的资源使用状况：内存占用3G-4G(z总8G)，cpu使用率低；
+    初步判断：并发不高，请求数不大
 
+2.查看 redis.conf配置文件：
+    // 最大使用内存为4.8G左右（总内存8G）
+    maxmemory 4831838208
+    
+    再次判断：目前内存使用量接近配置的最大内存阈值，容易触发告警；
+    
+    配置文件中没有配置key的回收策略（使用的是默认的，volatile-lru,此策略一定是要有设置失效时间才生效）
+
+3.登录redis后检查：
+   info memory : 内存使用情况
+   info stats : 查看当前状态
+   info clients : 查看当前总客户端数量
+   dbsize ： 查看当前总keys数量
+   
+   再次判断：总连接数33个，总keys数量为30多万个，应该是存在某些key没有设置失效时间导致长期占用内存
+
+4.使用Redis-rdb-tools分析工具导出key进行分析
+    //安装工具
+    [root@localhost ~]# yum -y install python-pip python-redis
+    [root@localhost ~]# pip install rdbtools
+    
+    //导出数据
+    [root@localhost redis]# rdb -c memory dump.rdb > memory.csv
+    
+    //数据说明
+    database（key在Redis的db）
+    type（key类型）
+    key（key值）
+    size_in_bytes（key的内存大小）
+    encoding（value的存储编码形式）
+    num_elements（key中的value的个数）
+    len_largest_element（key中的value的长度）
+    
+    结论：key=loginLogPhoneRecordAPP 和key = loginLogPhoneRecordWEB 这两个内容最大，而且没有设置失效时间。
+    
+    其他sso的大多key失效时间都是72000秒。
+       
+处理方式：
+1.直接删除：key=loginLogPhoneRecordAPP 和key = loginLogPhoneRecordWEB
+2.修改程序，给这两个key加入失效时间
+效果：
+1.内存直接下降到500M左右
 
 
 问题二：

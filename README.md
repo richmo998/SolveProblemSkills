@@ -15,3 +15,4 @@
 
 
 ## jvm
+   - 排查类加载器加载jar文件后，出现loadClass抛出ClassNotFound异常
